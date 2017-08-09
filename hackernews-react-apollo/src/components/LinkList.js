@@ -5,17 +5,108 @@ import Link from './Link';
 class LinkList extends Component {
 
   _updateCacheAfterVote = (store, createVote, linkId) => {
-  // Section 6 part 1
-    // Get the current state of the cached data for the ALL_LINKS_QUERY
+    // Section 6 part 1
+      // Get the current state of the cached data for the ALL_LINKS_QUERY
     const data = store.readQuery({ query: ALL_LINKS_QUERY })
-  // Section 6 part 2
-    // Retrieve the link that the user just voted for from that list
-    // Manipulate that link by resetting it's votes to the votes returned by the server
+    // Section 6 part 2
+      // Retrieve the link that the user just voted for from that list
+      // Manipulate that link by resetting it's votes to the votes returned by the server
     const votedLink = data.allLinks.find(link => link.id === linkId)
     votedLink.votes = createVote.link.votes
-  // Section 6 part 3
-    // Take that modified data, and write it back to the store
+    // Section 6 part 3
+      // Take that modified data, and write it back to the store
     store.writeQuery({ query: ALL_LINKS_QUERY, data })
+  }
+
+  _subscribeToNewLinks = () => {
+  this.props.allLinksQuery.subscribeToMore({
+    document: gql`
+      subscription {
+        Link(filter: {
+          mutation_in: [CREATED]
+        }) {
+          node {
+            id
+            url
+            description
+            createdAt
+            postedBy {
+              id
+              name
+            }
+            votes {
+              id
+              user {
+                id
+              }
+            }
+          }
+        }
+      }
+    `,
+    updateQuery: (previous, { subscriptionData }) => {
+      const newAllLinks = [
+        subscriptionData.data.Link.node,
+        ...previous.allLinks
+      ]
+      const result = {
+        ...previous,
+        allLinks: newAllLinks
+      }
+      return result
+    }
+  })
+}
+
+  _subscribeToNewVotes = () => {
+    this.props.allLinksQuery.subscribeToMore({
+      document: gql`
+        subscription {
+          Vote(filter: {
+            mutation_in: [CREATED]
+          }) {
+            node {
+              id
+              link {
+                id
+                url
+                description
+                createdAt
+                postedBy {
+                  id
+                  name
+                }
+                votes {
+                  id
+                  user {
+                    id
+                  }
+                }
+              }
+              user {
+                id
+              }
+            }
+          }
+        }
+      `,
+      updateQuery: (previous, { subscriptionData }) => {
+        const votedLinkIndex = previous.allLinks.findIndex(link => link.id === subscriptionData.data.Vote.node.link.id)
+        const link = subscriptionData.data.Vote.node.link
+        const newAllLinks = previous.allLinks.slice()
+        newAllLinks[votedLinkIndex] = link
+        const result = {
+          ...previous,
+          allLinks: newAllLinks
+        }
+        return result
+      }
+    })
+  }
+
+  componentDidMount() {
+    this._subscribeToNewLinks()
+    this._subscribeToNewVotes()
   }
 
 
