@@ -4,6 +4,21 @@ import Link from './Link';
 
 class LinkList extends Component {
 
+  _updateCacheAfterVote = (store, createVote, linkId) => {
+  // Section 6 part 1
+    // Get the current state of the cached data for the ALL_LINKS_QUERY
+    const data = store.readQuery({ query: ALL_LINKS_QUERY })
+  // Section 6 part 2
+    // Retrieve the link that the user just voted for from that list
+    // Manipulate that link by resetting it's votes to the votes returned by the server
+    const votedLink = data.allLinks.find(link => link.id === linkId)
+    votedLink.votes = createVote.link.votes
+  // Section 6 part 3
+    // Take that modified data, and write it back to the store
+    store.writeQuery({ query: ALL_LINKS_QUERY, data })
+  }
+
+
   render() {
   // STEP 1 = DUMMY DATA
   //   const linksToRender = [
@@ -42,8 +57,13 @@ class LinkList extends Component {
 
   return (
     <div>
-      {linksToRender.map(link => (
-        <Link key={link.id} link={link}/>
+      {linksToRender.map( (link, index) => (
+        <Link 
+          key={link.id} 
+          index={index} 
+          link={link}
+          updateStoreAfterVote={this._updateCacheAfterVote}
+        />
       ))}
     </div>
   )
@@ -53,7 +73,7 @@ class LinkList extends Component {
 
 
 // 1
-const ALL_LINKS_QUERY = gql`
+export const ALL_LINKS_QUERY = gql`
   # 2
   query AllLinksQuery {
     allLinks {
@@ -61,6 +81,16 @@ const ALL_LINKS_QUERY = gql`
       createdAt
       url
       description
+      postedBy {
+        id
+        name
+      }
+      votes {
+        id
+        user {
+          id
+        }
+      }
     }
   }
 
